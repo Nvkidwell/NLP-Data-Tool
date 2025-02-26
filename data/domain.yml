@@ -1,0 +1,52 @@
+version: "2.0"
+intents:
+  - query_sales
+  - query_products
+  - query_avg_sales
+  - query_sales_trends
+
+entities:
+  - product
+  - date
+
+responses:
+  utter_sales_query:
+    - text: "I found the sales data you're looking for."
+  utter_products_query:
+    - text: "Here are the top selling products."
+  utter_avg_sales_query:
+    - text: "Here is the average sales information."
+  utter_sales_trends_query:
+    - text: "I can show you the sales trends over time."
+
+actions:
+  - action_query_sales
+  - action_query_products
+  - action_query_avg_sales
+  - action_query_sales_trends
+version: "2.0"
+intents:
+  - query_sales
+  - query_products
+  - query_avg_sales
+  - query_sales_trends
+
+entities:
+  - product
+  - date
+
+responses:
+  utter_sales_query:
+    - text: "I found the sales data you're looking for."
+  utter_products_query:
+    - text: "Here are the top selling products."
+  utter_avg_sales_query:
+    - text: "Here is the average sales information."
+  utter_sales_trends_query:
+    - text: "I can show you the sales trends over time."
+
+actions:
+  - action_query_sales
+  - action_query_products
+  - action_query_avg_sales
+  - action_query_sales_trends
