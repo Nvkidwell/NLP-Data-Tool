@@ -1,0 +1,283 @@
+Great! Let's recreate the **Conversational Data Analysis Bot** using open-source libraries instead of OpenAI for processing natural language queries. We can use **Rasa NLU** for intent classification and entity extraction, **SpaCy** for more sophisticated NLP tasks, and **Pandas** for data handling. This will give us full control over the system without relying on commercial APIs.
+
+### **Step-by-Step Guide: Open-Source Conversational Data Analysis Bot** 🚀
+
+---
+
+### **1️⃣ Set Up the Environment**
+
+We need to install the required libraries for our bot. We'll use:
+- **Rasa NLU** for natural language understanding (intent classification and entity extraction).
+- **SpaCy** for advanced NLP tasks like named entity recognition.
+- **Flask** for building the web server and API endpoints.
+- **Pandas** for processing CSV data.
+
+#### Install Required Packages:
+
+```bash
+pip install rasa spacy flask pandas
+python -m spacy download en_core_web_sm
+```
+
+---
+
+### **2️⃣ Set Up Rasa NLU for Intent and Entity Recognition**
+
+Rasa NLU will handle interpreting the user's intent and extracting entities (like **dates**, **products**, **sales**, etc.) from the input.
+
+#### **Create Rasa Training Data:**
+
+You need to create **intents** and **entities** that your bot will recognize. Save the following as `data/nlu.yml`.
+
+```yaml
+version: "2.0"
+nlu:
+  - intent: query_sales
+    examples: |
+      - What were the sales this month?
+      - Show me the total sales for the last quarter
+      - How much revenue did we generate last week?
+
+  - intent: query_products
+    examples: |
+      - What are the top selling products?
+      - Show me the top 5 products by revenue
+      - List the best performing products
+
+  - intent: query_avg_sales
+    examples: |
+      - What is the average sales?
+      - Show me the average sales for the month
+      - What's the average revenue per customer?
+
+  - intent: query_sales_trends
+    examples: |
+      - Show me the sales trends over time
+      - What is the sales pattern over the last year?
+```
+
+#### **Create a Domain File:**
+
+The domain file defines the intents and entities the bot can recognize, as well as any responses it can give. Save it as `domain.yml`.
+
+```yaml
+version: "2.0"
+intents:
+  - query_sales
+  - query_products
+  - query_avg_sales
+  - query_sales_trends
+
+entities:
+  - product
+  - date
+
+responses:
+  utter_sales_query:
+    - text: "I found the sales data you're looking for."
+  utter_products_query:
+    - text: "Here are the top selling products."
+  utter_avg_sales_query:
+    - text: "Here is the average sales information."
+  utter_sales_trends_query:
+    - text: "I can show you the sales trends over time."
+
+actions:
+  - action_query_sales
+  - action_query_products
+  - action_query_avg_sales
+  - action_query_sales_trends
+```
+
+#### **Set Up the Action Server (Python)**
+
+For each intent, you will need to create a custom action to process the query. For example, the `action_query_sales` action will process a user's query about sales.
+
+Create a file `actions.py`:
+
+```python
+from rasa_sdk import Action, Tracker
+from rasa_sdk.executor import CollectingDispatcher
+import pandas as pd
+import datetime
+
+class ActionQuerySales(Action):
+    def name(self):
+        return "action_query_sales"
+
+    def run(self, dispatcher, tracker, domain):
+        # Load your CSV data
+        df = pd.read_csv("sales_data.csv")
+
+        # Example logic: filter by month or date range
+        today = datetime.date.today()
+        last_month = today.replace(day=1) - datetime.timedelta(days=1)
+        df['date'] = pd.to_datetime(df['date'])
+
+        monthly_sales = df[df['date'].dt.month == last_month.month]['sales'].sum()
+
+        dispatcher.utter_message(text=f"Total sales for last month: {monthly_sales}")
+        return []
+
+class ActionQueryProducts(Action):
+    def name(self):
+        return "action_query_products"
+
+    def run(self, dispatcher, tracker, domain):
+        df = pd.read_csv("sales_data.csv")
+        top_products = df.groupby('product')['sales'].sum().nlargest(5)
+        dispatcher.utter_message(text=f"Top 5 products by sales: {top_products}")
+        return []
+
+class ActionQueryAvgSales(Action):
+    def name(self):
+        return "action_query_avg_sales"
+
+    def run(self, dispatcher, tracker, domain):
+        df = pd.read_csv("sales_data.csv")
+        avg_sales = df['sales'].mean()
+        dispatcher.utter_message(text=f"Average sales: {avg_sales}")
+        return []
+
+class ActionQuerySalesTrends(Action):
+    def name(self):
+        return "action_query_sales_trends"
+
+    def run(self, dispatcher, tracker, domain):
+        df = pd.read_csv("sales_data.csv")
+        monthly_sales_trends = df.groupby(df['date'].dt.to_period('M'))['sales'].sum()
+        dispatcher.utter_message(text=f"Sales trends over time: {monthly_sales_trends}")
+        return []
+```
+
+#### **Train and Run Rasa NLU**:
+
+Train your Rasa model using:
+
+```bash
+rasa train
+```
+
+After training, run the action server:
+
+```bash
+rasa run actions
+```
+
+And start the Rasa NLU server:
+
+```bash
+rasa shell
+```
+
+---
+
+### **3️⃣ Set Up Flask API to Handle File Uploads and Queries**
+
+Now, we'll use **Flask** to handle CSV file uploads and interaction with the Rasa bot.
+
+#### **Flask Application (app.py):**
+
+```python
+from flask import Flask, request, jsonify
+import pandas as pd
+from rasa.core.agent import Agent
+from rasa.core.interpreter import RasaNLUInterpreter
+
+app = Flask(__name__)
+
+# Load Rasa agent for processing user input
+interpreter = RasaNLUInterpreter("models/nlu")
+agent = Agent.load("models/dialogue", interpreter=interpreter)
+
+df = None
+
+@app.route('/')
+def home():
+    return "Welcome to the Conversational Data Analysis Bot!"
+
+# Endpoint to upload CSV and process data
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    file = request.files['file']
+    global df
+    df = pd.read_csv(file)
+    return jsonify({"message": "CSV uploaded successfully. You can now ask questions!"})
+
+# Endpoint to interact with the bot
+@app.route('/ask', methods=['POST'])
+def ask():
+    if df is None:
+        return jsonify({"error": "No data uploaded. Please upload a CSV file first."})
+
+    user_input = request.json['message']
+    response = process_query(user_input)
+    return jsonify({"response": response})
+
+def process_query(user_input):
+    # Process the query with Rasa
+    responses = agent.handle_text(user_input)
+    return responses[0]['text']
+
+if __name__ == '__main__':
+    app.run(debug=True)
+```
+
+---
+
+### **4️⃣ Run Your Flask Application**
+
+To start the application, simply run the following:
+
+```bash
+python app.py
+```
+
+Your Flask app will be running at `http://127.0.0.1:5000`.
+
+---
+
+### **5️⃣ Interact with the Bot**
+
+#### Step 1: Upload the CSV File  
+Use **Postman** or **curl** to upload your CSV.
+
+**Using curl:**
+
+```bash
+curl -X POST -F "file=@your_data.csv" http://127.0.0.1:5000/upload
+```
+
+#### Step 2: Ask Questions  
+After uploading the CSV, send a **POST request** to `/ask` with a **message** (in JSON format).
+
+**Using curl:**
+
+```bash
+curl -X POST http://127.0.0.1:5000/ask -H "Content-Type: application/json" -d '{"message": "What were the sales this month?"}'
+```
+
+#### Step 3: Receive the Response  
+You’ll get a response like:
+
+```json
+{
+  "response": "Total sales for last month: 15000"
+}
+```
+
+---
+
+### **6️⃣ Conclusion**
+
+This is a basic **open-source conversational data analysis bot** that:
+- Uses **Rasa NLU** to process natural language queries.
+- Uses **Pandas** to process and analyze the uploaded CSV data.
+- Uses **Flask** to serve as the API that handles file uploads and query processing.
+
+You can extend the bot to:
+- Handle more complex queries.
+- Add visualization capabilities (e.g., using **Matplotlib** or **Plotly**).
+- Support more advanced NLP features.
+
+Would you like to expand any specific part of the bot, or do you need further assistance with the code?
