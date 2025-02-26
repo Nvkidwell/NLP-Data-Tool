@@ -1,0 +1,24 @@
+version: "2.0"
+nlu:
+  - intent: query_sales
+    examples: |
+      - What were the sales this month?
+      - Show me the total sales for the last quarter
+      - How much revenue did we generate last week?
+
+  - intent: query_products
+    examples: |
+      - What are the top selling products?
+      - Show me the top 5 products by revenue
+      - List the best performing products
+
+  - intent: query_avg_sales
+    examples: |
+      - What is the average sales?
+      - Show me the average sales for the month
+      - What's the average revenue per customer?
+
+  - intent: query_sales_trends
+    examples: |
+      - Show me the sales trends over time
+      - What is the sales pattern over the last year?
